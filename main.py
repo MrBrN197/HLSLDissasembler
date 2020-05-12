@@ -94,10 +94,23 @@ class BinOp(Node):
         self.op = op
         self.right = right
 
-class Assignment(Node):
+class Assign(Node):
     def __init__(self, dest: Node, src: Node):
         self.dest = dest
         self.src = src
+
+class ConditionalAssign(Node):
+    def __init__(self, dest: Node, condition: Node, src1: Node, src2: Node):
+        self.dest = dest
+        self.condition = condition
+        self.src1 = src1
+        self.src2 = src2
+
+class Comparison(Node):
+    def __init__(self, compareOp: str, left: Node, right: Node):
+        self.compareOp = compareOp
+        self.left = left
+        self.right = right
 
 class Var(Node):
     def __init__(self, varName):
@@ -116,6 +129,16 @@ class Number(Node):
 class Negated(Node):
     def __init__(self, innerNode):
         self.innerNode = innerNode
+
+class And():
+    def __init__(self, left: Node, right: Node):
+        self.left = left
+        self.right = right
+
+class Or():
+    def __init__(self, left: Node, right: Node):
+        self.left = left
+        self.right = right
 
 
 class Parser:
@@ -168,11 +191,13 @@ class Parser:
         v = self.current_token.value
         self.eat(TokenType.ID)
         result = None
+
         if self.current_token.value == '.':
-            v += self.current_token.value
-            self.eat(TokenType.DOT)
-            v += self.current_token.value
-            self.eat(TokenType.ID)
+            while self.current_token and self.current_token.value == '.':
+                v += self.current_token.value
+                self.eat(TokenType.DOT)
+                v += self.current_token.value
+                self.eat(TokenType.ID)
             result = Var(v)
         elif self.current_token.value == '(':
             # function
@@ -186,7 +211,7 @@ class Parser:
             result = Negated(result)
         return result
 
-    def mul(self):
+    def parse_mul(self):
         dest = self.expr()
         self.eat(TokenType.COMMA)
         arg1 = self.expr()
@@ -194,9 +219,9 @@ class Parser:
         arg2 = self.expr()
         # return (f'{dest} = {arg1} * {arg2};')
         src = BinOp(arg1, arg2, '*')
-        return Assignment(dest, src)
+        return Assign(dest, src)
 
-    def add(self):
+    def parse_add(self):
         dest = self.expr()
         self.eat(TokenType.COMMA)
         arg1 = self.expr()
@@ -204,9 +229,9 @@ class Parser:
         arg2 = self.expr()
         # return (f'{dest} = {arg1} + {arg2};')
         src = BinOp(arg1, arg2, '+')
-        return Assignment(dest, src)
+        return Assign(dest, src)
 
-    def mad(self):
+    def parse_mad(self):
         dest = self.expr()
         self.eat(TokenType.COMMA)
         arg1 = self.expr()
@@ -217,37 +242,93 @@ class Parser:
         # return (f'{dest} = {arg1} + {arg2};')
         arg12 = BinOp(arg1, arg2, '*')
         src = BinOp(arg12, arg3, '+')
-        return Assignment(dest, src)
+        return Assign(dest, src)
 
-    def div(self):
+    def parse_div(self):
         dest = self.expr()
         self.eat(TokenType.COMMA)
         arg1 = self.expr()
         self.eat(TokenType.COMMA)
         arg2 = self.expr()
         src = BinOp(arg1, arg2, '/')
-        return Assignment(dest, src)
+        return Assign(dest, src)
 
-    def exp(self):
+    def parse_exp(self):
         dest = self.expr()
         self.eat(TokenType.COMMA)
         arg1 = self.expr()
         src = ProcCall('exp2', [arg1])
-        return Assignment(dest, src)
+        return Assign(dest, src)
 
-    def log(self):
+    def parse_log(self):
         dest = self.expr()
         self.eat(TokenType.COMMA)
         arg1 = self.expr()
         src = ProcCall('log2', [arg1])
-        return Assignment(dest, src)
+        return Assign(dest, src)
 
-    def sqrt(self):
+    def parse_sqrt(self):
         dest = self.expr()
         self.eat(TokenType.COMMA)
         arg1 = self.expr()
         src = ProcCall('sqrt', [arg1])
-        return Assignment(dest, src)
+        return Assign(dest, src)
+
+    def parse_mov(self):
+        dest = self.expr()
+        self.eat(TokenType.COMMA)
+        src = self.expr()
+        return Assign(dest, src)
+
+    def parse_movc(self):
+        dest = self.expr()
+        self.eat(TokenType.COMMA)
+        cond = self.expr()
+        self.eat(TokenType.COMMA)
+        src1 = self.expr()
+        self.eat(TokenType.COMMA)
+        src2 = self.expr()
+        return ConditionalAssign(dest, cond, src1, src2)
+
+    def parse_and(self):
+        dest = self.expr()
+        self.eat(TokenType.COMMA)
+        arg1 = self.expr()
+        self.eat(TokenType.COMMA)
+        arg2 = self.expr()
+        return Assign(dest, And(arg1, arg2))
+
+    def parse_or(self):
+        dest = self.expr()
+        self.eat(TokenType.COMMA)
+        arg1 = self.expr()
+        self.eat(TokenType.COMMA)
+        arg2 = self.expr()
+        return Assign(dest, Or(arg1, arg2))
+
+    # def parse_ieq(self):
+    #     dest = self.expr()
+    #     self.eat(TokenType.COMMA)
+    #     arg1 = self.expr()
+    #     self.eat(TokenType.COMMA)
+    #     arg2 = self.expr()
+    #     return Assign(dest, Comparison('==', arg1, arg2))
+
+    def parse_ge(self):
+        dest = self.expr()
+        self.eat(TokenType.COMMA)
+        arg1 = self.expr()
+        self.eat(TokenType.COMMA)
+        arg2 = self.expr()
+        return Assign(dest, Comparison('>=', arg1, arg2))
+
+    def parse_lt(self):
+        dest = self.expr()
+        self.eat(TokenType.COMMA)
+        arg1 = self.expr()
+        self.eat(TokenType.COMMA)
+        arg2 = self.expr()
+        return Assign(dest, Comparison('<', arg1, arg2))
 
     # def dp4(self):  pass
     # def dp2(self):  pass
@@ -255,28 +336,28 @@ class Parser:
 
     # def ret(self):  pass
 
-    def min(self):
+    def parse_min(self):
         dst = self.expr()
         self.eat(TokenType.COMMA)
         arg1 = self.expr()
         self.eat(TokenType.COMMA)
         arg2 = self.expr()
         src = ProcCall('min', [arg1, arg2])
-        return Assignment(dst, src)
+        return Assign(dst, src)
 
-    def max(self):
+    def parse_max(self):
         dst = self.expr()
         self.eat(TokenType.COMMA)
         arg1 = self.expr()
         self.eat(TokenType.COMMA)
         arg2 = self.expr()
         src = ProcCall('max', [arg1, arg2])
-        return Assignment(dst, src)
+        return Assign(dst, src)
 
     def instruction(self):
         method_name = self.current_token.value
         self.eat(TokenType.ID)
-        func = getattr(self, method_name, None)
+        func = getattr(self, 'parse_' + method_name, None)
         if not func:
             return (f'No Implementation For [{method_name}]')
         return [method_name, func()]
@@ -285,7 +366,7 @@ class Parser:
         return self.instruction()
 
 
-with open('files\\test.txt', 'r') as in_file:
+with open('test.txt', 'r') as in_file:
     for line in in_file:
         line = line.partition(':')[2].replace('\n', '')
         parser = Parser(Tokenizer(line))
