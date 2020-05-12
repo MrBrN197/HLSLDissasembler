@@ -4,4 +4,8 @@
    3: mad				r1.xy, v4.xyxx, l(2.0000, 2.0000, 0.0000, 0.0000), l(-1.0000, -1.0000, 0.0000, 0.0000)    
    4: dp2				r1.z, r2.xyxx, r2.xyxx    
    5: sqrt				r1.z, r1.z   
-   6: mul				r2.x, var1.x, var2.x   
+   6: mul				r2.x, var1.x, var2.x 
+   7: max				r1.x, r1.x, l(0.0000)
+   8: log				r1.x, r1.x  
+
+

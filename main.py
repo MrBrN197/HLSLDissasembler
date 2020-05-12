@@ -84,7 +84,6 @@ class Tokenizer():
             assert False
         return None
 
-
 class Node:
     pass
 
@@ -132,7 +131,6 @@ class Parser:
 
     def param(self):
         # param: -?(NUMBER | expr)
-        # CONTINUE: 
         result = None
         negated = False
         if self.current_token.tokenType == TokenType.MINUS:
@@ -208,15 +206,6 @@ class Parser:
         src = BinOp(arg1, arg2, '+')
         return Assignment(dest, src)
 
-    def exp(self):
-        dest = self.expr()
-        self.eat(TokenType.COMMA)
-        arg1 = self.expr()
-        # return (f'{dest} = exp2({arg1});')
-        return Assignment(dest, arg1)
-
-    # def log(self):  pass
-
     def mad(self):
         dest = self.expr()
         self.eat(TokenType.COMMA)
@@ -230,10 +219,35 @@ class Parser:
         src = BinOp(arg12, arg3, '+')
         return Assignment(dest, src)
 
+    def div(self):
+        dest = self.expr()
+        self.eat(TokenType.COMMA)
+        arg1 = self.expr()
+        self.eat(TokenType.COMMA)
+        arg2 = self.expr()
+        src = BinOp(arg1, arg2, '/')
+        return Assignment(dest, src)
 
+    def exp(self):
+        dest = self.expr()
+        self.eat(TokenType.COMMA)
+        arg1 = self.expr()
+        src = ProcCall('exp2', [arg1])
+        return Assignment(dest, src)
 
-    # def sqrt(self):  pass
-    # def div(self):  pass
+    def log(self):
+        dest = self.expr()
+        self.eat(TokenType.COMMA)
+        arg1 = self.expr()
+        src = ProcCall('log2', [arg1])
+        return Assignment(dest, src)
+
+    def sqrt(self):
+        dest = self.expr()
+        self.eat(TokenType.COMMA)
+        arg1 = self.expr()
+        src = ProcCall('sqrt', [arg1])
+        return Assignment(dest, src)
 
     # def dp4(self):  pass
     # def dp2(self):  pass
@@ -241,10 +255,23 @@ class Parser:
 
     # def ret(self):  pass
 
-    # def min(self):  pass
-    # def max(self):  pass
-    # def max(self):  pass
+    def min(self):
+        dst = self.expr()
+        self.eat(TokenType.COMMA)
+        arg1 = self.expr()
+        self.eat(TokenType.COMMA)
+        arg2 = self.expr()
+        src = ProcCall('min', [arg1, arg2])
+        return Assignment(dst, src)
 
+    def max(self):
+        dst = self.expr()
+        self.eat(TokenType.COMMA)
+        arg1 = self.expr()
+        self.eat(TokenType.COMMA)
+        arg2 = self.expr()
+        src = ProcCall('max', [arg1, arg2])
+        return Assignment(dst, src)
 
     def instruction(self):
         method_name = self.current_token.value
@@ -252,16 +279,10 @@ class Parser:
         func = getattr(self, method_name, None)
         if not func:
             return (f'No Implementation For [{method_name}]')
-        # return f'{method_name}: {func()}'
         return [method_name, func()]
-        # func = getattr(self, method_name, None)
-        # return func()
             
     def parse(self):
         return self.instruction()
-        # while self.current_token:
-            # print(self.current_token)
-            # self.current_token = self.lexer.get_next_token()
 
 
 with open('files\\test.txt', 'r') as in_file:
@@ -271,10 +292,3 @@ with open('files\\test.txt', 'r') as in_file:
         result = parser.parse()
         print(result)
         print('', end='')
-
-
-
-#    0: sample_indexable(texture2d)(float,float,float,float) r0.xyzw, v4.xyxx, diffuseTex.xyzw, g_linear  
-#    1: mul				r0.w, r0.w, v5.w  
-#    2: mul				r0.w, r0.w, me_colour.w   
-#    3: mad				r1.xy, v4.xyxx, l(2.0000, 2.0000, 0.0000, 0.0000), l(-1.0000, -1.0000, 0.0000, 0.0000)    
