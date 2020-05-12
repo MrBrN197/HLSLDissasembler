@@ -84,6 +84,41 @@ class Tokenizer():
             assert False
         return None
 
+
+class Node:
+    pass
+
+
+class BinOp(Node):
+    def __init__(self, left: Node, right: Node, op: str):
+        self.left = left
+        self.op = op
+        self.right = right
+
+class Assignment(Node):
+    def __init__(self, dest: Node, src: Node):
+        self.dest = dest
+        self.src = src
+
+class Var(Node):
+    def __init__(self, varName):
+        self.varName = varName
+
+class ProcCall(Node):
+    def __init__(self, procName, arguments):
+        self.procName = procName
+        self.arguments = arguments
+
+class Number(Node):
+    def __init__(self, number):
+        self.number = number
+
+
+class Negated(Node):
+    def __init__(self, innerNode):
+        self.innerNode = innerNode
+
+
 class Parser:
     def __init__(self, lexer):
         self.lexer = lexer
@@ -96,18 +131,23 @@ class Parser:
             assert False
 
     def param(self):
-        # param: -? (NUMBER | variable)
+        # param: -?(NUMBER | expr)
         # CONTINUE: 
-        value = ''
+        result = None
+        negated = False
         if self.current_token.tokenType == TokenType.MINUS:
-            value += '-'
+            negated = True
             self.eat(TokenType.MINUS)
         if self.current_token.tokenType == TokenType.NUMBER:
-            value += self.current_token.value
+            value = self.current_token.value
             self.eat(TokenType.NUMBER)
-            return value
-        value = self.expr()
-        return value
+            result = Number(value)
+        else:
+            result = self.expr()
+
+        if negated:
+            result = Negated(result)
+        return result
 
     def function_params(self):
         # function_params: LPAREN param (COMMA param)* RPAREN
@@ -118,22 +158,35 @@ class Parser:
             self.eat(TokenType.COMMA)
             params.append(self.param())
         self.eat(TokenType.RPAREN)
-        return '(' + ','.join(params) + ')'
+        return params
+        # return '(' + ','.join(params) + ')'
 
     def expr(self):
-        # expr: function | variable
+        # expr: -?(function | variable)
+        negated = False
+        if self.current_token.value == '-':
+            self.eat(TokenType.MINUS)
+            negated = True
         v = self.current_token.value
         self.eat(TokenType.ID)
-
+        result = None
         if self.current_token.value == '.':
             v += self.current_token.value
             self.eat(TokenType.DOT)
             v += self.current_token.value
             self.eat(TokenType.ID)
+            result = Var(v)
         elif self.current_token.value == '(':
             # function
-            v = v + self.function_params()
-        return v
+            params = self.function_params()
+            if v == 'l':
+                v = f'float{len(params)}'
+            # v = v + '(' + ','.join(params) + ')'
+            result = ProcCall(v, [p for p in params])
+
+        if negated:
+            result = Negated(result)
+        return result
 
     def mul(self):
         dest = self.expr()
@@ -141,7 +194,9 @@ class Parser:
         arg1 = self.expr()
         self.eat(TokenType.COMMA)
         arg2 = self.expr()
-        return (f'{dest} = {arg1} * {arg2};')
+        # return (f'{dest} = {arg1} * {arg2};')
+        src = BinOp(arg1, arg2, '*')
+        return Assignment(dest, src)
 
     def add(self):
         dest = self.expr()
@@ -149,17 +204,34 @@ class Parser:
         arg1 = self.expr()
         self.eat(TokenType.COMMA)
         arg2 = self.expr()
-        return (f'{dest} = {arg1} + {arg2};')
+        # return (f'{dest} = {arg1} + {arg2};')
+        src = BinOp(arg1, arg2, '+')
+        return Assignment(dest, src)
 
     def exp(self):
         dest = self.expr()
         self.eat(TokenType.COMMA)
         arg1 = self.expr()
-        return (f'{dest} = exp2({arg1});')
+        # return (f'{dest} = exp2({arg1});')
+        return Assignment(dest, arg1)
 
     # def log(self):  pass
 
-    # def mad(self):  pass
+    def mad(self):
+        dest = self.expr()
+        self.eat(TokenType.COMMA)
+        arg1 = self.expr()
+        self.eat(TokenType.COMMA)
+        arg2 = self.expr()
+        self.eat(TokenType.COMMA)
+        arg3 = self.expr()
+        # return (f'{dest} = {arg1} + {arg2};')
+        arg12 = BinOp(arg1, arg2, '*')
+        src = BinOp(arg12, arg3, '+')
+        return Assignment(dest, src)
+
+
+
     # def sqrt(self):  pass
     # def div(self):  pass
 
@@ -180,7 +252,8 @@ class Parser:
         func = getattr(self, method_name, None)
         if not func:
             return (f'No Implementation For [{method_name}]')
-        return func()
+        # return f'{method_name}: {func()}'
+        return [method_name, func()]
         # func = getattr(self, method_name, None)
         # return func()
             
@@ -191,12 +264,14 @@ class Parser:
             # self.current_token = self.lexer.get_next_token()
 
 
-with open('test.txt', 'r') as in_file:
+with open('files\\test.txt', 'r') as in_file:
     for line in in_file:
         line = line.partition(':')[2].replace('\n', '')
         parser = Parser(Tokenizer(line))
         result = parser.parse()
         print(result)
+        print('', end='')
+
 
 
 #    0: sample_indexable(texture2d)(float,float,float,float) r0.xyzw, v4.xyxx, diffuseTex.xyzw, g_linear  
