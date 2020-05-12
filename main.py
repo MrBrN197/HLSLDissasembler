@@ -118,6 +118,7 @@ class Var(Node):
 
 class ProcCall(Node):
     def __init__(self, procName, arguments):
+        assert type(arguments) == list
         self.procName = procName
         self.arguments = arguments
 
@@ -359,17 +360,69 @@ class Parser:
         self.eat(TokenType.ID)
         func = getattr(self, 'parse_' + method_name, None)
         if not func:
-            return (f'No Implementation For [{method_name}]')
+            return [method_name, None]
         return [method_name, func()]
             
     def parse(self):
         return self.instruction()
 
 
+class Translator:
+    def __init__(self):
+        pass
+
+    def convert(self, root: Node):
+        return self.translate(root) + ';'
+
+    def translate(self, node: Node):
+        method_name = 'translate_' + type(node).__name__
+        func = getattr(self, method_name, None)
+        if not func:
+            raise Exception(f"No Implementation for {method_name}")
+        return func(node)
+
+    def translate_Number(self, node: Number):
+        return node.number
+
+    def translate_Negated(self, node: Negated):
+        return '-' + self.translate(node.innerNode)
+
+    def translate_Or(self, node: Or):
+        return '[Or]'
+
+    def translate_And(self, node: And):
+        return '[And]'
+
+    def translate_Comparison(self, node: Comparison):
+        return '[Comparison]'
+
+    def translate_ProcCall(self, node: ProcCall):
+        args = ', '.join([self.translate(n) for n in node.arguments])
+        return f'{node.procName}({args})'
+
+    def translate_BinOp(self, node: BinOp):
+        return f'{self.translate(node.left)} {node.op} {self.translate(node.right)}'
+
+    def translate_Var(self, node: Var):
+        return node.varName
+
+    def translate_Assign(self, node: Assign):
+        # TODO: get correct types
+        return f'float4 {self.translate(node.dest)} = {self.translate(node.src)}'
+
+    def translate_ConditionalAssign(self, node: ConditionalAssign):
+        # TODO: get correct types
+        return f'float4 {self.translate(node.dest)} = ({self.translate(node.condition)}) ? {self.translate(node.src1)} : {self.translate(node.src2)}'
+
+
 with open('test.txt', 'r') as in_file:
     for line in in_file:
         line = line.partition(':')[2].replace('\n', '')
         parser = Parser(Tokenizer(line))
-        result = parser.parse()
-        print(result)
-        print('', end='')
+        opcode, result = parser.parse()
+        if result:
+            translator = Translator()
+            code = translator.convert(result)
+            print(code)
+        else:
+            print(f'No Implementation for {opcode}')
