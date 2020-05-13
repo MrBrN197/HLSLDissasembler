@@ -388,13 +388,13 @@ class Translator:
         return '-' + self.translate(node.innerNode)
 
     def translate_Or(self, node: Or):
-        return '[Or]'
+        return f' {self.translate(node.left)} | {self.translate(node.right)}'
 
     def translate_And(self, node: And):
-        return '[And]'
+        return f' {self.translate(node.left)} & {self.translate(node.right)}'
 
     def translate_Comparison(self, node: Comparison):
-        return '[Comparison]'
+        return f'{self.translate(node.left)} {node.compareOp} {self.translate(node.right)}'
 
     def translate_ProcCall(self, node: ProcCall):
         args = ', '.join([self.translate(n) for n in node.arguments])
