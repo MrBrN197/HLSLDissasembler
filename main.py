@@ -408,11 +408,28 @@ class Translator:
 
     def translate_Assign(self, node: Assign):
         # TODO: get correct types
-        return f'float4 {self.translate(node.dest)} = {self.translate(node.src)}'
+        dst = self.translate(node.dest)
+        swizzlePart = self.GetSwizzle(dst)
+        assert all([x in ('x', 'y', 'z', 'w') for x in swizzlePart])
+        
+        hlslType = 'float'
+        if(len(swizzlePart) != 1):
+            hlslType = 'float' + str(len(swizzlePart))
+        return f'{hlslType} {self.translate(node.dest)} = {self.translate(node.src)}'
 
     def translate_ConditionalAssign(self, node: ConditionalAssign):
         # TODO: get correct types
-        return f'float4 {self.translate(node.dest)} = ({self.translate(node.condition)}) ? {self.translate(node.src1)} : {self.translate(node.src2)}'
+        dst = self.translate(node.dest)
+        swizzlePart = self.GetSwizzle(dst)
+        assert all([x in ('x', 'y', 'z', 'w') for x in swizzlePart])
+
+        hlslType = 'float'
+        if(len(swizzlePart) != 1):
+            hlslType = 'float' + str(len(swizzlePart))
+        return f'{hlslType} {dst} = ({self.translate(node.condition)}) ? {self.translate(node.src1)} : {self.translate(node.src2)}'
+
+    def GetSwizzle(self, string):
+        return string.rpartition('.')[-1]
 
 
 with open('test.txt', 'r') as in_file:
