@@ -122,6 +122,12 @@ class ProcCall(Node):
         self.procName = procName
         self.arguments = arguments
 
+class TextureLookup(Node):
+    def __init__(self, texture: str, sampler: str, location: str):
+        self.texture = texture 
+        self.sampler = sampler
+        self.location = location
+
 class Number(Node):
     def __init__(self, number):
         self.number = number
@@ -191,16 +197,16 @@ class Parser:
             negated = True
         v = self.current_token.value
         self.eat(TokenType.ID)
-        result = None
 
-        if self.current_token.value == '.':
+        result = Var(v)
+        if self.current_token and self.current_token.value == '.':
             while self.current_token and self.current_token.value == '.':
                 v += self.current_token.value
                 self.eat(TokenType.DOT)
                 v += self.current_token.value
                 self.eat(TokenType.ID)
             result = Var(v)
-        elif self.current_token.value == '(':
+        elif self.current_token and self.current_token.value == '(':
             # function
             params = self.function_params()
             assert(len(params))
@@ -358,6 +364,30 @@ class Parser:
         src = ProcCall('max', [arg1, arg2])
         return Assign(dst, src)
 
+    def parse_sample_indexable(self):
+        # sample_indexable(texture2d)(float,float,float,float) dst, arg1, arg2, arg3  
+        self.eat(TokenType.LPAREN)
+        self.eat(TokenType.ID)
+        self.eat(TokenType.RPAREN)
+        self.eat(TokenType.LPAREN)
+        for _ in range(3):
+            self.eat(TokenType.ID)
+            self.eat(TokenType.COMMA)
+        self.eat(TokenType.ID)
+        self.eat(TokenType.RPAREN)
+
+        dst = self.expr()
+        self.eat(TokenType.COMMA)
+        location = self.expr()
+        self.eat(TokenType.COMMA)
+        texture = self.expr()
+        self.eat(TokenType.COMMA)
+        sampler = self.expr()
+
+        src = TextureLookup(texture, sampler, location)
+        return Assign(dst, src)
+
+
     def instruction(self):
         method_name = self.current_token.value
         self.eat(TokenType.ID)
@@ -399,6 +429,11 @@ class Translator:
             raise Exception(f"No Implementation for {method_name}")
         return func(node)
 
+    def translate_TextureLookup(self, node: TextureLookup):
+        texture = self.translate(node.texture)
+        textureName, _, swizzlePart = texture.rpartition('.')
+        return f'{textureName}.Sample({self.translate(node.sampler)}, {self.translate(node.location)}).{swizzlePart}'
+
     def translate_Number(self, node: Number):
         return node.number
 
@@ -425,16 +460,17 @@ class Translator:
     def translate_Var(self, node: Var):
         name, dot, swizzlePart = node.varName.rpartition('.')
 
-        if(self.transientData):
-            comps = self.transientData
-            usedComponents = list(filter(lambda x: x == True, comps))
-            assert len(swizzlePart) >= len(usedComponents)
-            if len(usedComponents) < len(swizzlePart):
-                newMask = ''
-                for i, c in enumerate(swizzlePart):
-                    if comps[i]:
-                        newMask += c
-                swizzlePart = newMask
+        if(dot):
+            if(self.transientData):
+                comps = self.transientData
+                usedComponents = list(filter(lambda x: x == True, comps))
+                assert len(swizzlePart) >= len(usedComponents)
+                if len(usedComponents) < len(swizzlePart):
+                    newMask = ''
+                    for i, c in enumerate(swizzlePart):
+                        if comps[i]:
+                            newMask += c
+                    swizzlePart = newMask
 
         return name + dot + swizzlePart
 
