@@ -203,8 +203,11 @@ class Parser:
         elif self.current_token.value == '(':
             # function
             params = self.function_params()
+            assert(len(params))
             if v == 'l':
-                v = f'float{len(params)}'
+                v = f'float'
+                if len(params) != 1:
+                    v = f'float{len(params)}'
             # v = v + '(' + ','.join(params) + ')'
             result = ProcCall(v, [p for p in params])
 
@@ -367,9 +370,24 @@ class Parser:
         return self.instruction()
 
 
-class Translator:
+class Register:
     def __init__(self):
-        pass
+        self.x = ''
+        self.y = ''
+        self.z = ''
+        self.w = ''
+
+class RegisterStorage:
+    def __init__(self):
+        self.r1 = Register()
+        self.r2 = Register()
+        self.r3 = Register()
+        self.r4 = Register()
+
+class Translator:
+    def __init__(self, registerStorage):
+        self.registerStorage = registerStorage
+        self.transientData = None
 
     def convert(self, root: Node):
         return self.translate(root) + ';'
@@ -397,6 +415,7 @@ class Translator:
         return f'{self.translate(node.left)} {node.compareOp} {self.translate(node.right)}'
 
     def translate_ProcCall(self, node: ProcCall):
+        # TODO: type truncation
         args = ', '.join([self.translate(n) for n in node.arguments])
         return f'{node.procName}({args})'
 
@@ -404,42 +423,74 @@ class Translator:
         return f'{self.translate(node.left)} {node.op} {self.translate(node.right)}'
 
     def translate_Var(self, node: Var):
-        return node.varName
+        name, dot, swizzlePart = node.varName.rpartition('.')
+
+        if(self.transientData):
+            comps = self.transientData
+            usedComponents = list(filter(lambda x: x == True, comps))
+            assert len(swizzlePart) >= len(usedComponents)
+            if len(usedComponents) < len(swizzlePart):
+                newMask = ''
+                for i, c in enumerate(swizzlePart):
+                    if comps[i]:
+                        newMask += c
+                swizzlePart = newMask
+
+        return name + dot + swizzlePart
+
+    def GetDestinationAndType(self, node):
+        dst = self.translate(node.dest)
+        
+        swizzlePart = dst.rpartition('.')[-1]
+
+        components = ('x', 'y', 'z', 'w')
+        assert all([x in components for x in swizzlePart])
+
+        componentsSet = [False, False, False, False]
+        for c in swizzlePart:
+            idx = ord(c) - ord('w')
+            componentsSet[idx] = True
+
+        # array looks like wxyz convert, this rotates it left once to xyzw
+        componentsSet = componentsSet[1:] + componentsSet[0:1]
+
+        hlslType = 'float'
+        if(len(swizzlePart) != 1):
+            hlslType = 'float' + str(len(swizzlePart))
+
+        return (dst, hlslType, componentsSet)
 
     def translate_Assign(self, node: Assign):
-        # TODO: get correct types
-        dst = self.translate(node.dest)
-        swizzlePart = self.GetSwizzle(dst)
-        assert all([x in ('x', 'y', 'z', 'w') for x in swizzlePart])
-        
-        hlslType = 'float'
-        if(len(swizzlePart) != 1):
-            hlslType = 'float' + str(len(swizzlePart))
-        return f'{hlslType} {self.translate(node.dest)} = {self.translate(node.src)}'
+        dst, hlslType, componentsSet = self.GetDestinationAndType(node)
+        self.transientData = componentsSet
+        result = f'{hlslType} {dst} = {self.translate(node.src)}'
+        self.transientData = None
+        return result
+
 
     def translate_ConditionalAssign(self, node: ConditionalAssign):
-        # TODO: get correct types
-        dst = self.translate(node.dest)
-        swizzlePart = self.GetSwizzle(dst)
-        assert all([x in ('x', 'y', 'z', 'w') for x in swizzlePart])
-
-        hlslType = 'float'
-        if(len(swizzlePart) != 1):
-            hlslType = 'float' + str(len(swizzlePart))
-        return f'{hlslType} {dst} = ({self.translate(node.condition)}) ? {self.translate(node.src1)} : {self.translate(node.src2)}'
-
-    def GetSwizzle(self, string):
-        return string.rpartition('.')[-1]
-
+        dst, hlslType, componentsSet = self.GetDestinationAndType(node)
+        self.transientData = componentsSet
+        result = f'{hlslType} {dst} = ({self.translate(node.condition)}) ? {self.translate(node.src1)} : {self.translate(node.src2)}'
+        self.transientData = None
+        return result
+        
 
 with open('test.txt', 'r') as in_file:
+
+    out_file = open('out_file.txt', 'w')
+
     for line in in_file:
         line = line.partition(':')[2].replace('\n', '')
         parser = Parser(Tokenizer(line))
         opcode, result = parser.parse()
         if result:
-            translator = Translator()
+            assert (type(result) == Assign) or (type(result) == ConditionalAssign)
+            translator = Translator(RegisterStorage())
             code = translator.convert(result)
+            out_file.write(code+'\n')
             print(code)
         else:
             print(f'No Implementation for {opcode}')
+
+    out_file.close()
