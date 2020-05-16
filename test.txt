@@ -2,37 +2,49 @@
    1: mul				r0.w, r0.w, v5.w  
    2: mul				r0.w, r0.w, me_colour.w   
    3: mad				r1.xy, v4.xyxx, l(2.0000, 2.0000, 0.0000, 0.0000), l(-1.0000, -1.0000, 0.0000, 0.0000)    
-   4: sqrt				r1.z, r1.z   
-   5: lt				r1.w, l(0), me_edgeFade.x  
-   6: mul				r2.x, me_aspectRatio.x, me_edgeFade.x   
-   7: mov				r2.y, me_edgeFade.x     
-   8: add				r1.xy, abs(r1.xyxx), l(-1.0000, -1.0000, 0.0000, 0.0000)    
-   9: div				r2.xy, l(1.0000, 1.0000, 1.0000, 1.0000), -r2.xyxx  
-  10: mul				r1.xy, r1.xyxx, r1.xyxx 
-  11: max				r1.x, r1.x, l(0.0000)   
-  12: max				r1.y, me_edgeFadeFalloff.x, l(0.0000)   
-  13: log				r1.x, r1.x  
-  14: mul				r1.x, r1.x, r1.y    
-  15: exp				r1.x, r1.x  
-  16: mul				r1.x, r0.w, r1.x    
-  17: movc				r0.w, r1.w, r1.x, r0.w  
-  18: mad				r1.yz, v6.yyzy, l(0.0000, 2.0000, 2.0000, 0.0000), l(0.0000, -1.0000, -1.0000, 0.0000)  
-  19: lt				r1.yz, l(0.0000, 1.0000, 1.0000, 0.0000), abs(r1.yyzy)  
-  20: or				r1.y, r1.z, r1.y    
-  21: movc				r1.x, r1.y, l(0), r1.x  
-  22: mul				r1.w, r0.w, r1.x    
-  23: ge				r0.w, l(0), r1.w    
-  24: mul				r2.xyz, r0.xyzx, l(12.9200, 12.9200, 12.9200, 0.0000)   
-  25: log				r3.xyz, abs(r0.xyzx)
-  26: mul				r3.xyz, r3.xyzx, l(0.4167, 0.4167, 0.4167, 0.0000)
-  27: exp				r3.xyz, r3.xyzx
-  28: ge				r0.xyz, l(0.0031, 0.0031, 0.0031, 0.0000), r0.xyzx
-  29: movc				r0.xyz, r0.xyzx, r2.xyzx, r3.xyzx
-  30: mul				r2.xyz, v5.xyzx, me_colour.xyzx
-  31: mul				r3.xyz, r0.xyzx, r2.xyzx
-  32: mad				r0.xyz, v6.xxxx, r0.xyzx, r0.wwww
-  33: div				r0.w, l(1.0000, 1.0000, 1.0000, 1.0000), sceneGammaAdjustment.x
-  34: log				r0.xyz, abs(r0.xyzx)
-  35: mul				r0.xyz, r0.xyzx, r0.wwww
-  36: exp				r1.xyz, r0.xyzx
-  37: ret
+   4: deriv_rtx_coarse	r2.x, v4.x   
+   5: deriv_rty_coarse	r2.y, v4.y   
+   6: dp2				r1.z, r2.xyxx, r2.xyxx    
+   7: sqrt				r1.z, r1.z   
+   8: lt				r1.w, l(0), me_edgeFade.x  
+   9: mul				r2.x, me_aspectRatio.x, me_edgeFade.x   
+  10: mov				r2.y, me_edgeFade.x     
+  11: mul				r2.xy, r1.zzzz, r2.xyxx 
+  12: add				r1.xy, abs(r1.xyxx), l(-1.0000, -1.0000, 0.0000, 0.0000)    
+  13: div				r2.xy, l(1.0000, 1.0000, 1.0000, 1.0000), -r2.xyxx  
+  14: mul_sat		    r1.xy, r1.xyxx, r2.xyxx 
+  15: mad				r2.xy, r1.xyxx, l(-2.0000, -2.0000, 0.0000, 0.0000), l(3.0000, 3.0000, 0.0000, 0.0000)  
+  16: mul				r1.xy, r1.xyxx, r1.xyxx 
+  17: mul				r1.xy, r1.xyxx, r2.xyxx 
+  18: mul				r1.x, r1.y, r1.x    
+  19: max				r1.x, r1.x, l(0.0000)   
+  20: max				r1.y, me_edgeFadeFalloff.x, l(0.0000)   
+  21: log				r1.x, r1.x  
+  22: mul				r1.x, r1.x, r1.y    
+  23: exp				r1.x, r1.x  
+  24: mul				r1.x, r0.w, r1.x    
+  25: movc				r0.w, r1.w, r1.x, r0.w  
+  26: sample_indexable(texture2d)(float,float,float,float) r1.x, v6.yzyy, maskTex.wxyz, g_linear    
+  27: mad				r1.yz, v6.yyzy, l(0.0000, 2.0000, 2.0000, 0.0000), l(0.0000, -1.0000, -1.0000, 0.0000)  
+  28: lt				r1.yz, l(0.0000, 1.0000, 1.0000, 0.0000), abs(r1.yyzy)  
+  29: or				r1.y, r1.z, r1.y    
+  30: movc				r1.x, r1.y, l(0), r1.x  
+  31: mul				r1.w, r0.w, r1.x    
+  32: ge				r0.w, l(0), r1.w    
+  33: discard_nz		r0.w
+  34: mul				r2.xyz, r0.xyzx, l(12.9200, 12.9200, 12.9200, 0.0000)   
+  35: log				r3.xyz, abs(r0.xyzx)
+  36: mul				r3.xyz, r3.xyzx, l(0.4167, 0.4167, 0.4167, 0.0000)
+  37: exp				r3.xyz, r3.xyzx
+  38: mad				r3.xyz, r3.xyzx, l(1.0550, 1.0550, 1.0550, 0.0000), l(-0.0550, -0.0550, -0.0550, 0.0000)
+  39: ge				r0.xyz, l(0.0031, 0.0031, 0.0031, 0.0000), r0.xyzx
+  40: movc				r0.xyz, r0.xyzx, r2.xyzx, r3.xyzx
+  41: mul				r2.xyz, v5.xyzx, me_colour.xyzx
+  42: mul				r3.xyz, r0.xyzx, r2.xyzx
+  43: dp3				r0.w, r3.xyzx, l(0.2990, 0.5870, 0.1140, 0.0000)
+  44: mad				r0.xyz, r0.xyzx, r2.xyzx, -r0.wwww
+  45: mad				r0.xyz, v6.xxxx, r0.xyzx, r0.wwww
+  46: div				r0.w, l(1.0000, 1.0000, 1.0000, 1.0000), sceneGammaAdjustment.x
+  47: log				r0.xyz, abs(r0.xyzx)
+  48: mul				r0.xyz, r0.xyzx, r0.wwww
+  49: exp				r1.xyz, r0.xyzx

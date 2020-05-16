@@ -94,6 +94,13 @@ class BinOp(Node):
         self.op = op
         self.right = right
 
+class IfBlock(Node):
+    def __init__(self, ifArg, thenDo, elseDo = None):
+        self.ifArg = ifArg
+        self.thenDo = thenDo
+        self.elseDo = elseDo
+        
+
 class Assign(Node):
     def __init__(self, dest: Node, src: Node):
         self.dest = dest
@@ -129,7 +136,7 @@ class TextureLookup(Node):
         self.location = location
 
 class Number(Node):
-    def __init__(self, number):
+    def __init__(self, number: str):
         self.number = number
 
 
@@ -340,11 +347,50 @@ class Parser:
         arg2 = self.expr()
         return Assign(dest, Comparison('<', arg1, arg2))
 
-    # def dp4(self):  pass
-    # def dp2(self):  pass
-    # def dp3(self):  pass
+    def parse_dp2(self):
+        dst = self.expr()
+        self.eat(TokenType.COMMA)
+        arg1 = self.expr()
+        self.eat(TokenType.COMMA)
+        arg2 = self.expr()
+        src = ProcCall("dot2", [arg1, arg2])
+        return Assign(dst, src)
+
+    def parse_dp3(self):
+        dst = self.expr()
+        self.eat(TokenType.COMMA)
+        arg1 = self.expr()
+        self.eat(TokenType.COMMA)
+        arg2 = self.expr()
+        src = ProcCall("dot3", [arg1, arg2])
+        return Assign(dst, src)
 
     # def ret(self):  pass
+
+    def parse_mul_sat(self):
+        result = self.parse_mul()
+        one = Number('1')
+        zero = Number('0')
+        saturatedValue = ProcCall('max', [ProcCall('min', [result.src, one]), zero] )
+        return Assign(result.dest, saturatedValue)
+
+    def parse_discard_nz(self):
+        ifArg = self.expr()
+        return IfBlock(ifArg, 'discard')
+
+    def parse_deriv_rtx_coarse(self):
+        dst = self.expr()
+        self.eat(TokenType.COMMA)
+        arg = self.expr()
+        src = ProcCall('ddx_coarse', [arg])
+        return Assign(dst, src)
+
+    def parse_deriv_rty_coarse(self):
+        dst = self.expr()
+        self.eat(TokenType.COMMA)
+        arg = self.expr()
+        src = ProcCall('ddy_coarse', [arg])
+        return Assign(dst, src)
 
     def parse_min(self):
         dst = self.expr()
@@ -426,7 +472,7 @@ class Translator:
         method_name = 'translate_' + type(node).__name__
         func = getattr(self, method_name, None)
         if not func:
-            raise Exception(f"No Implementation for {method_name}")
+            raise Exception(f"No translation for {method_name}")
         return func(node)
 
     def translate_TextureLookup(self, node: TextureLookup):
@@ -510,7 +556,11 @@ class Translator:
         result = f'{hlslType} {dst} = ({self.translate(node.condition)}) ? {self.translate(node.src1)} : {self.translate(node.src2)}'
         self.transientData = None
         return result
-        
+
+    def translate_IfBlock(self, node: IfBlock):
+        # TODO: Implement
+        return '[IfBlock]'
+
 
 with open('test.txt', 'r') as in_file:
 
@@ -521,7 +571,7 @@ with open('test.txt', 'r') as in_file:
         parser = Parser(Tokenizer(line))
         opcode, result = parser.parse()
         if result:
-            assert (type(result) == Assign) or (type(result) == ConditionalAssign)
+            assert type(result) in (Assign, ConditionalAssign, IfBlock)
             translator = Translator(RegisterStorage())
             code = translator.convert(result)
             out_file.write(code+'\n')
